@@ -47,10 +47,18 @@ private:
     bool* flag_;
 };
 
+auto operator<<(std::ostream& os, A const&) -> std::ostream& {
+    return os << "type A";
+}
+
+static_assert(!std::is_copy_constructible<A>::value,
+    "Type `A` shouldn't be copy constructible");
+
 auto type_index_tests() {
 
     using MyVariant = variant::Variant<int, A, std::string>;
     MyVariant v { 42 };
+    //MyVariant u = v; // Shouldn't compile!
     ENSURE(get_type_index<int>(v) == 0);
     ENSURE(get_type_index<A>(v) == 1);
     ENSURE(get_type_index<std::string>(v) == 2);
@@ -86,10 +94,23 @@ auto noexcept_constructor_tests() {
 }
 
 auto copy_construct_tests() {
+    static_assert(variant::all_copy_constructible<int, float, std::string>::value,
+        "(int, float, string) should all be copy constructible");
     using MyVariant = variant::Variant<int, float, std::string>;
     MyVariant a { 42 };
     MyVariant b = a;
     ENSURE(variant::is_alternative<int>(b));
+}
+
+auto visit_tests() {
+    using MyVariant = variant::Variant<int, A, std::string>;
+
+    variant::visit(
+        [](auto&& val) {
+            std::cout << val << "\n";
+        },
+        MyVariant { 42 }
+    );
 }
 
 auto main(int, char const**) -> int {
@@ -100,6 +121,7 @@ auto main(int, char const**) -> int {
         destructor_called_tests();
         noexcept_constructor_tests();
         copy_construct_tests();
+        visit_tests();
     }
     catch(std::exception const& e) {
         std::cerr << e.what() << "\n";
