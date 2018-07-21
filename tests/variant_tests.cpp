@@ -17,6 +17,22 @@ do { \
 } \
 while (false)
 
+#define ENSURE_THROWS(expr) \
+do { \
+    bool expression_threw = false; \
+    try { \
+        (expr); \
+    } \
+    catch (...) { expression_threw = true; } \
+    if (!expression_threw) { \
+        throw std::logic_error { \
+            __FILE__ ", " TO_STR(__LINE__) \
+                ": Expression expected to throw - " TO_STR(expr) \
+        }; \
+    } \
+} \
+while (false)
+
 template<typename T, typename... Ts>
 constexpr auto get_type_index(variant::Variant<Ts...> const&) -> size_t {
     return variant::type_index_of<0, T, Ts...>::value;
@@ -105,27 +121,69 @@ auto copy_construct_tests() {
 auto visit_tests() {
     using MyVariant = variant::Variant<int, A, std::string>;
 
+    bool visited = false;
     variant::visit(
-        [](auto&& val) {
-            std::cout << val << "\n";
+        [&visited](auto&& val) {
+            visited = true;
         },
         MyVariant { 42 }
     );
+
+    ENSURE(visited);
+}
+
+auto access_tests() {
+    using MyVariant = variant::Variant<int, A, std::string>;
+    ENSURE(variant::get<int>(MyVariant { 42 }) == 42);
+    ENSURE_THROWS(variant::get<A>(MyVariant { 42 }));
+}
+
+auto noexcept_tests() {
+    using MyVariant = variant::Variant<int, A, std::string>;
+    using MyOtherVariant = variant::Variant<int, float>;
+
+    ENSURE(std::is_nothrow_move_constructible<MyVariant>::value);
+    ENSURE(!std::is_nothrow_copy_constructible<MyVariant>::value);
+
+    ENSURE(std::is_nothrow_move_constructible<MyOtherVariant>::value);
+    ENSURE(std::is_nothrow_copy_constructible<MyOtherVariant>::value);
+}
+
+using TestFunc = void (*)();
+
+template<size_t N>
+auto run_tests(TestFunc (&fn)[N]) -> bool {
+
+    bool all_passed = true;
+    for(auto&& f : fn) {
+        try {
+            f();
+        }
+        catch(std::exception const& e) {
+            all_passed = false;
+            std::cerr << e.what() << "\n";
+        }
+    }
+
+    return all_passed;
 }
 
 auto main(int, char const**) -> int {
 
-    try {
-        type_index_tests();
-        is_alternative_tests();
-        destructor_called_tests();
-        noexcept_constructor_tests();
-        copy_construct_tests();
-        visit_tests();
-    }
-    catch(std::exception const& e) {
-        std::cerr << e.what() << "\n";
+    TestFunc tests[] = {
+        type_index_tests,
+        is_alternative_tests,
+        destructor_called_tests,
+        noexcept_constructor_tests,
+        copy_construct_tests,
+        visit_tests,
+        access_tests,
+        noexcept_tests,
+    };
+
+    if (!run_tests(tests)) {
         return -1;
     }
+
     return 0;
 }

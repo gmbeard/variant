@@ -4,6 +4,8 @@ add_executable(variant_tests
     variant_tests.cpp
 )
 
+add_sanitizers(variant_tests)
+
 target_link_libraries(variant_tests
     PRIVATE
         Variant::variant

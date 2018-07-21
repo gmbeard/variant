@@ -120,6 +120,12 @@ namespace variant {
             );
     }
 
+    struct IncorrectAlternativeError : std::runtime_error {
+        IncorrectAlternativeError() :
+            std::runtime_error("Attempted to access incorrect alternative")
+        { }
+    };
+
     //  TODO:
     //  {No}Copyable types need some way to communicate
     //  conditional noexcept to child implementers.
@@ -250,6 +256,25 @@ namespace variant {
             return type_index_of<0, T, Ts...>::value == type_index_;
         }
 
+        template<typename T>
+        auto get() & -> T& {
+            if (!is_alternative<T>()) {
+                throw IncorrectAlternativeError { };
+            }
+
+            return *reinterpret_cast<T*>(storage_);
+        }
+
+        template<typename T>
+        auto get() const & -> T const& {
+            return const_cast<VariantStorage&>(*this).get<T>();
+        }
+
+        template<typename T>
+        auto get() && -> T&& {
+            return std::move(get<T>());
+        }
+
         template<typename F>
         auto visit(F&& visitor) const &
             -> typename std::result_of<F(typename first_type<Ts...>::type const&)>::type
@@ -373,13 +398,28 @@ namespace variant {
             return std::move(inner_).visit(std::forward<F>(visitor));
         }
 
+        template<typename T>
+        auto get() & -> T& {
+            return inner_.template get<T>();
+        }
+
+        template<typename T>
+        auto get() const & -> T const& {
+            return inner_.template get<T>();
+        }
+
+        template<typename T>
+        auto get() && -> T&& {
+            return std::move(inner_).template get<T>();
+        }
+
     private:
         VariantStorage<Ts...> inner_;
     };
 
     template<typename T, typename... Ts>
     auto is_alternative(Variant<Ts...> const& v) -> bool {
-        return v.is_alternative<T>();
+        return v.template is_alternative<T>();
     }
 
     template<typename F, typename T, typename... Ts>
@@ -395,6 +435,21 @@ namespace variant {
     template<typename F, typename T, typename... Ts>
     auto visit(F&& visitor, Variant<T, Ts...>&& var) {
         std::move(var).visit(std::forward<F>(visitor));
+    }
+
+    template<typename T, typename... Ts> 
+    auto get(Variant<Ts...>& var) {
+        return var.template get<T>();
+    }
+
+    template<typename T, typename... Ts> 
+    auto get(Variant<Ts...> const& var) {
+        return var.template get<T>();
+    }
+
+    template<typename T, typename... Ts> 
+    auto get(Variant<Ts...>&& var) {
+        return std::move(var).template get<T>();
     }
 }
 #endif //VARIANT_VARIANT_HPP_INCLUDED
