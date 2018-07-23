@@ -35,4 +35,6 @@ add_subdirectory(include)
 if(ENABLE_VARIANT_TESTS)
     enable_testing()
     add_subdirectory(tests)
+    add_subdirectory(examples)
 endif()
+

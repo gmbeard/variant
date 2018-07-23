@@ -123,7 +123,7 @@ auto visit_tests() {
 
     bool visited = false;
     variant::visit(
-        [&visited](auto&& val) {
+        [&visited](auto&&) {
             visited = true;
         },
         MyVariant { 42 }

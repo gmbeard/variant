@@ -18,7 +18,7 @@ target_compile_features(variant_tests
 
 target_compile_options(variant_tests
     PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX /permissive->
+        $<$<CXX_COMPILER_ID:MSVC>:/FAsc /W4 /WX /permissive->
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Werror>
 )
 
