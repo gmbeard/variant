@@ -196,7 +196,8 @@ namespace variant {
                 [this](auto&& val) {
                     static_assert(
                         !std::is_const<
-                            std::remove_reference<decltype(val)>::type>::value,
+                            typename std::remove_reference<decltype(val)>::type
+                        >::value,
                         "Cannot be const");
                     using T = typename std::decay<decltype(val)>::type;
                     new (storage_) T { std::move(val) };
@@ -310,25 +311,25 @@ namespace variant {
                 get_storage());
         }
 
-        template<
-            typename F,
-            typename R = typename std::result_of<F(typename first_type<Ts...>::type&&)>::type>
-        auto visit(F&& visitor) && -> R {
-            // TODO:
-            // On MSVC, there seems to be some deduction issues with this
-            // r-value reference version of `visit`. `move_visit` should
-            // be used explicitly for now.
-            static_assert(false, "Disabled. Shouldn't be used!");
-//            using Fr = typename std::add_rvalue_reference<F>::type;
-//            using Fn = R (*)(Fr, decltype(get_storage()));
-//            Fn paths[sizeof...(Ts)] = {
-//                apply_move_visitor<Ts, R, Fr, decltype(get_storage())>...
-//            };
-//
-//            return (paths[type_index_])(
-//                std::forward<F>(visitor), 
-//                get_storage());
-        }
+//        template<
+//            typename F,
+//            typename R = typename std::result_of<F(typename first_type<Ts...>::type&&)>::type>
+//        auto visit(F&& visitor) && -> R {
+//            // TODO:
+//            // On MSVC, there seems to be some deduction issues with this
+//            // r-value reference version of `visit`. `move_visit` should
+//            // be used explicitly for now.
+//            static_assert(false, "Disabled. Shouldn't be used!");
+////            using Fr = typename std::add_rvalue_reference<F>::type;
+////            using Fn = R (*)(Fr, decltype(get_storage()));
+////            Fn paths[sizeof...(Ts)] = {
+////                apply_move_visitor<Ts, R, Fr, decltype(get_storage())>...
+////            };
+////
+////            return (paths[type_index_])(
+////                std::forward<F>(visitor), 
+////                get_storage());
+//        }
 
         template<
             typename F,
