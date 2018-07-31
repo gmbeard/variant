@@ -7,3 +7,13 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
         $<INSTALL_INTERFACE:include>
 )
+
+install(
+    DIRECTORY variant
+    DESTINATION include
+)
+
+install(
+    TARGETS variant
+    EXPORT VariantTargets
+)

@@ -38,3 +38,20 @@ if(ENABLE_VARIANT_TESTS)
     add_subdirectory(examples)
 endif()
 
+install(
+    FILES
+        cmake/VariantConfig.cmake
+    DESTINATION
+        lib/cmake/variant
+)
+
+install(
+    EXPORT
+        VariantTargets
+    NAMESPACE
+        Variant::
+    FILE
+        VariantTargets.cmake
+    DESTINATION
+        lib/cmake/variant
+)
