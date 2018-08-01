@@ -136,6 +136,7 @@ auto access_tests() {
     using MyVariant = variant::Variant<int, A, std::string>;
     ENSURE(variant::get<int>(MyVariant { 42 }) == 42);
     ENSURE_THROWS(variant::get<A>(MyVariant { 42 }));
+    ENSURE(std::is_rvalue_reference<decltype(variant::get<A>(std::declval<MyVariant>()))>::value);
 }
 
 auto noexcept_tests() {

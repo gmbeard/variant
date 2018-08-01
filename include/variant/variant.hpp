@@ -477,17 +477,17 @@ namespace variant {
     }
 
     template<typename T, typename... Ts> 
-    auto get(Variant<Ts...>& var) {
+    auto& get(Variant<Ts...>& var) {
         return var.template get<T>();
     }
 
     template<typename T, typename... Ts> 
-    auto get(Variant<Ts...> const& var) {
+    auto const& get(Variant<Ts...> const& var) {
         return var.template get<T>();
     }
 
     template<typename T, typename... Ts> 
-    auto get(Variant<Ts...>&& var) {
+    auto&& get(Variant<Ts...>&& var) {
         return std::move(var).template get<T>();
     }
 }
