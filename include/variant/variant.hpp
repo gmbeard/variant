@@ -224,6 +224,8 @@ namespace variant {
                     new (storage_) T { val };
                 }
             );
+
+            return *this;
         }
 
         VariantStorage& operator=(VariantStorage&& other) 
@@ -236,6 +238,8 @@ namespace variant {
                     new (storage_) T { std::move(val) };
                 }
             );
+
+            return *this;
         }
 
         template<
@@ -255,6 +259,8 @@ namespace variant {
             new (storage_) typename std::decay<U>::type { 
                 std::forward<U>(val) 
             };
+
+            return *this;
         }
 
         template<typename T>
