@@ -169,7 +169,7 @@ namespace variant {
                 type_index_of<0, typename std::decay<U>::type, Ts...>::value 
             } 
         {
-            new (storage_) typename std::decay<U>::type { 
+            new (get_storage()) typename std::decay<U>::type { 
                 std::forward<U>(val) 
             };
         }
@@ -182,7 +182,7 @@ namespace variant {
             other.visit(
                 [this](auto const& val) {
                     using T = typename std::decay<decltype(val)>::type;
-                    new (storage_) T { val };
+                    new (get_storage()) T { val };
                 }
             );
         }
@@ -200,7 +200,7 @@ namespace variant {
                         >::value,
                         "Cannot be const");
                     using T = typename std::decay<decltype(val)>::type;
-                    new (storage_) T { std::move(val) };
+                    new (get_storage()) T { std::move(val) };
                 }
             );
         }
@@ -221,7 +221,8 @@ namespace variant {
             other.visit(
                 [this](auto const& val) {
                     using T = typename std::decay<decltype(val)>::type;
-                    new (storage_) T { val };
+                    new (get_storage()) T { val };
+                    type_index_ = type_index_of<0, T, Ts...>::value;
                 }
             );
 
@@ -235,7 +236,8 @@ namespace variant {
             std::move(other).move_visit(
                 [this](auto&& val) {
                     using T = typename std::decay<decltype(val)>::type;
-                    new (storage_) T { std::move(val) };
+                    new (get_storage()) T { std::move(val) };
+                    type_index_ = type_index_of<0, T, Ts...>::value;
                 }
             );
 
@@ -256,7 +258,7 @@ namespace variant {
             this->~VariantStorage();
             type_index_ = 
                 type_index_of<0, typename std::decay<U>::type, Ts...>::value;
-            new (storage_) typename std::decay<U>::type { 
+            new (get_storage()) typename std::decay<U>::type { 
                 std::forward<U>(val) 
             };
 
