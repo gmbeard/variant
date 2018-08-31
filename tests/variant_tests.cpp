@@ -129,6 +129,18 @@ auto copy_assign_tests() {
     ENSURE(variant::is_alternative<int>(b));
 }
 
+auto move_assign_tests() {
+
+    using MyVariant = variant::Variant<int, float, std::string>;
+    MyVariant a { 42 };
+    MyVariant b { std::string { "Hello, World!" } };
+
+    b = std::move(a);
+
+    ENSURE(variant::is_alternative<int>(b));
+    ENSURE(42 == variant::get<int>(b));
+}
+
 auto visit_tests() {
     using MyVariant = variant::Variant<int, A, std::string>;
 
@@ -191,7 +203,8 @@ auto main(int, char const**) -> int {
         visit_tests,
         access_tests,
         noexcept_tests,
-        copy_assign_tests
+        copy_assign_tests,
+        move_assign_tests
     };
 
     if (!run_tests(tests)) {

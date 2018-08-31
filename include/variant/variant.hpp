@@ -229,7 +229,7 @@ namespace variant {
             noexcept(all_noexcept_move_constructible<Ts...>::value)
         {
             this->~VariantStorage();
-            std::move(other).move_visit(
+            std::move(other).visit(
                 [this](auto&& val) {
                     using T = typename std::decay<decltype(val)>::type;
                     new (static_cast<void*>(get_storage())) T { 
