@@ -5,6 +5,7 @@
 #include <cassert>
 #include <type_traits>
 #include <stdexcept>
+#include <tuple>
 
 namespace variant {
 
@@ -95,13 +96,11 @@ namespace variant {
         static constexpr bool value = true;
     };
 
-    template<typename... Ts>
-    struct first_type;
+    template<size_t I, typename... Ts>
+    using type_at_index_t = std::tuple_element_t<I, std::tuple<Ts...>>;
 
-    template<typename T, typename... Ts>
-    struct first_type<T, Ts...> {
-        using type = T;
-    };
+    template<typename... Ts>
+    using first_type_t = type_at_index_t<0, Ts...>;
 
     template<typename T, typename F, typename S, typename... Ts>
     decltype(auto) apply_visitor(F&& f, S storage, Ts&&... args) {
@@ -287,9 +286,32 @@ namespace variant {
             return std::move(get<T>());
         }
 
+        template<size_t I>
+        auto get() & -> type_at_index_t<I, Ts...>& {
+            if (I != type_index_) {
+                throw IncorrectAlternativeError { };
+            }
+
+            using U = type_at_index_t<I, Ts...>;
+
+            return *reinterpret_cast<U*>(storage_);
+        }
+
+        template<size_t I>
+        auto get() const & 
+            -> type_at_index_t<I, Ts...> const& 
+        {
+            return const_cast<VariantStorage&>(*this).get<I>();
+        }
+
+        template<size_t I>
+        auto get() && -> type_at_index_t<I, Ts...>&& {
+            return std::move(get<I>());
+        }
+
         template<typename F>
         decltype(auto) visit(F&& visitor) const & {
-            using R = std::result_of_t<F(typename first_type<Ts...>::type const&)>;
+            using R = std::result_of_t<F(first_type_t<Ts...> const&)>;
             using Fr = std::add_rvalue_reference_t<F>;
             using Fn = R (*)(Fr, decltype(get_storage()));
             Fn paths[sizeof...(Ts)] = {
@@ -303,7 +325,7 @@ namespace variant {
 
         template<typename F>
         decltype(auto) visit(F&& visitor) & {
-            using R = std::result_of_t<F(typename first_type<Ts...>::type&)>;
+            using R = std::result_of_t<F(first_type_t<Ts...>&)>;
             using Fr = std::add_rvalue_reference_t<F>;
             using Fn = R (*)(Fr, decltype(get_storage()));
             Fn paths[sizeof...(Ts)] = {
@@ -318,7 +340,7 @@ namespace variant {
         template<typename F>
         decltype(auto) visit(F&& visitor) && {
             using S = decltype(std::move(*this).get_storage());
-            using R = std::result_of_t<F(typename first_type<Ts...>::type&&)>;
+            using R = std::result_of_t<F(first_type_t<Ts...>&&)>;
             using Fr = std::add_rvalue_reference_t<F>;
             using Fn = auto (*)(Fr, S) -> R;
             Fn paths[sizeof...(Ts)] = {
@@ -430,6 +452,21 @@ namespace variant {
             return std::move(inner_).template get<T>();
         }
 
+        template<size_t I>
+        decltype(auto) get() & {
+            return inner_.template get<I>();
+        }
+
+        template<size_t I>
+        decltype(auto) get() const & {
+            return inner_.template get<I>();
+        }
+
+        template<size_t I>
+        decltype(auto) get() && {
+            return std::move(inner_).template get<I>();
+        }
+
     private:
         VariantStorage<Ts...> inner_;
     };
@@ -473,6 +510,14 @@ namespace variant {
         typename std::enable_if<traits::is_variant_v<V>>::type* = nullptr>
     decltype(auto) get(V&& var) {
         return std::forward<V>(var).template get<T>();
+    }
+
+    template<
+        size_t I,
+        typename V,
+        typename std::enable_if<traits::is_variant_v<V>>::type* = nullptr>
+    decltype(auto) get(V&& val) {
+        return std::forward<V>(val).template get<I>();
     }
 }
 #endif //VARIANT_VARIANT_HPP_INCLUDED

@@ -173,6 +173,19 @@ auto noexcept_tests() {
     ENSURE(std::is_nothrow_copy_constructible<MyOtherVariant>::value);
 }
 
+
+auto type_at_index_tests() {
+    using namespace std::literals;
+
+    using MyVariant = variant::Variant<int, A, std::string>;
+
+    auto v = MyVariant { "Hello, World"s };
+
+    ENSURE(variant::get<2>(v) == "Hello, World");
+    ENSURE_THROWS(variant::get<0>(v));
+    ENSURE_THROWS(variant::get<1>(v));
+}
+
 using TestFunc = void (*)();
 
 template<size_t N>
@@ -192,6 +205,7 @@ auto run_tests(TestFunc (&fn)[N]) -> bool {
     return all_passed;
 }
 
+
 auto main(int, char const**) -> int {
 
     TestFunc tests[] = {
@@ -204,7 +218,8 @@ auto main(int, char const**) -> int {
         access_tests,
         noexcept_tests,
         copy_assign_tests,
-        move_assign_tests
+        move_assign_tests,
+        type_at_index_tests
     };
 
     if (!run_tests(tests)) {
