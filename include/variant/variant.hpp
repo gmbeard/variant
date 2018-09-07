@@ -464,7 +464,7 @@ namespace variant {
         typename V,
         typename std::enable_if<traits::is_variant_v<V>>::type* = nullptr>
     decltype(auto) visit(F&& visitor, V&& var) {
-        return std::forward<V>(var).template visit(std::forward<F>(visitor));
+        return std::forward<V>(var).visit(std::forward<F>(visitor));
     }
 
     template<
