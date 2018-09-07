@@ -103,8 +103,8 @@ namespace variant {
         using type = T;
     };
 
-    template<typename T, typename R, typename F, typename S, typename... Ts>
-    auto apply_visitor(F&& f, S storage, Ts&&... args) -> R {
+    template<typename T, typename F, typename S, typename... Ts>
+    decltype(auto) apply_visitor(F&& f, S storage, Ts&&... args) {
         return 
             std::forward<F>(f)(
                 *reinterpret_cast<T*>(storage), 
@@ -112,8 +112,8 @@ namespace variant {
             );
     }
 
-    template<typename T, typename R, typename F, typename S, typename... Ts>
-    auto apply_move_visitor(F&& f, S storage, Ts&&... args) -> R {
+    template<typename T, typename F, typename S, typename... Ts>
+    decltype(auto) apply_move_visitor(F&& f, S storage, Ts&&... args) {
         return 
             std::forward<F>(f)(
                 std::move(*reinterpret_cast<T*>(storage)), 
@@ -127,11 +127,6 @@ namespace variant {
         { }
     };
 
-    //  TODO:
-    //  {No}Copyable types need some way to communicate
-    //  conditional noexcept to child implementers.
-    //  Maybe we can use `{No}Copyable<Ts...>` and 
-    //  `all_noexcept_copy_constructible<Ts...>`
     struct NoCopyable {
         NoCopyable() = default;
         NoCopyable(NoCopyable const&) = delete;
@@ -182,7 +177,7 @@ namespace variant {
             other.visit(
                 [this](auto const& val) {
                     using T = typename std::decay<decltype(val)>::type;
-                    new (get_storage()) T { val };
+                    new (static_cast<void*>(get_storage())) T { val };
                 }
             );
         }
@@ -192,15 +187,16 @@ namespace variant {
         :
             type_index_ { other.type_index_ }
         {
-            std::move(other).move_visit(
+            std::move(other).visit(
                 [this](auto&& val) {
                     static_assert(
                         !std::is_const<
-                            typename std::remove_reference<decltype(val)>::type
-                        >::value,
+                            std::remove_reference_t<decltype(val)>>::value,
                         "Cannot be const");
                     using T = typename std::decay<decltype(val)>::type;
-                    new (get_storage()) T { std::move(val) };
+                    new (static_cast<void*>(get_storage())) T { 
+                        std::move(val) 
+                    };
                 }
             );
         }
@@ -221,7 +217,7 @@ namespace variant {
             other.visit(
                 [this](auto const& val) {
                     using T = typename std::decay<decltype(val)>::type;
-                    new (get_storage()) T { val };
+                    new (static_cast<void*>(get_storage())) T { val };
                     type_index_ = type_index_of<0, T, Ts...>::value;
                 }
             );
@@ -233,10 +229,12 @@ namespace variant {
             noexcept(all_noexcept_move_constructible<Ts...>::value)
         {
             this->~VariantStorage();
-            std::move(other).move_visit(
+            std::move(other).visit(
                 [this](auto&& val) {
                     using T = typename std::decay<decltype(val)>::type;
-                    new (get_storage()) T { std::move(val) };
+                    new (static_cast<void*>(get_storage())) T { 
+                        std::move(val) 
+                    };
                     type_index_ = type_index_of<0, T, Ts...>::value;
                 }
             );
@@ -258,7 +256,7 @@ namespace variant {
             this->~VariantStorage();
             type_index_ = 
                 type_index_of<0, typename std::decay<U>::type, Ts...>::value;
-            new (get_storage()) typename std::decay<U>::type { 
+            new (static_cast<void*>(get_storage())) typename std::decay<U>::type { 
                 std::forward<U>(val) 
             };
 
@@ -289,14 +287,13 @@ namespace variant {
             return std::move(get<T>());
         }
 
-        template<
-            typename F,
-            typename R = typename std::result_of<F(typename first_type<Ts...>::type const&)>::type>
-        auto visit(F&& visitor) const & -> R {
-            using Fr = typename std::add_rvalue_reference<F>::type;
+        template<typename F>
+        decltype(auto) visit(F&& visitor) const & {
+            using R = std::result_of_t<F(typename first_type<Ts...>::type const&)>;
+            using Fr = std::add_rvalue_reference_t<F>;
             using Fn = R (*)(Fr, decltype(get_storage()));
             Fn paths[sizeof...(Ts)] = {
-                apply_visitor<Ts const, R, Fr, decltype(get_storage())>...
+                apply_visitor<Ts const, Fr, decltype(get_storage())>...
             };
 
             return (paths[type_index_])(
@@ -304,14 +301,13 @@ namespace variant {
                 get_storage());
         }
 
-        template<
-            typename F,
-            typename R = typename std::result_of<F(typename first_type<Ts...>::type&)>::type>
-        auto visit(F&& visitor) & -> R {
-            using Fr = typename std::add_rvalue_reference<F>::type;
+        template<typename F>
+        decltype(auto) visit(F&& visitor) & {
+            using R = std::result_of_t<F(typename first_type<Ts...>::type&)>;
+            using Fr = std::add_rvalue_reference_t<F>;
             using Fn = R (*)(Fr, decltype(get_storage()));
             Fn paths[sizeof...(Ts)] = {
-                apply_visitor<Ts, R, Fr, decltype(get_storage())>...
+                apply_visitor<Ts, Fr, decltype(get_storage())>...
             };
 
             return (paths[type_index_])(
@@ -319,39 +315,19 @@ namespace variant {
                 get_storage());
         }
 
-//        template<
-//            typename F,
-//            typename R = typename std::result_of<F(typename first_type<Ts...>::type&&)>::type>
-//        auto visit(F&& visitor) && -> R {
-//            // TODO:
-//            // On MSVC, there seems to be some deduction issues with this
-//            // r-value reference version of `visit`. `move_visit` should
-//            // be used explicitly for now.
-//            static_assert(false, "Disabled. Shouldn't be used!");
-////            using Fr = typename std::add_rvalue_reference<F>::type;
-////            using Fn = R (*)(Fr, decltype(get_storage()));
-////            Fn paths[sizeof...(Ts)] = {
-////                apply_move_visitor<Ts, R, Fr, decltype(get_storage())>...
-////            };
-////
-////            return (paths[type_index_])(
-////                std::forward<F>(visitor), 
-////                get_storage());
-//        }
-
-        template<
-            typename F,
-            typename R = typename std::result_of<F(typename first_type<Ts...>::type&&)>::type>
-        auto move_visit(F&& visitor) && -> R {
-            using Fr = typename std::add_rvalue_reference<F>::type;
-            using Fn = R (*)(Fr, decltype(get_storage()));
+        template<typename F>
+        decltype(auto) visit(F&& visitor) && {
+            using S = decltype(std::move(*this).get_storage());
+            using R = std::result_of_t<F(typename first_type<Ts...>::type&&)>;
+            using Fr = std::add_rvalue_reference_t<F>;
+            using Fn = auto (*)(Fr, S) -> R;
             Fn paths[sizeof...(Ts)] = {
-                apply_move_visitor<Ts, R, Fr, decltype(get_storage())>...
+                apply_move_visitor<Ts, Fr, S>...
             };
 
             return (paths[type_index_])(
                 std::forward<F>(visitor), 
-                get_storage());
+                std::move(*this).get_storage());
         }
 
     private:
@@ -436,7 +412,7 @@ namespace variant {
         auto visit(F&& visitor) && 
             -> decltype(std::declval<VariantStorage<Ts...>>().visit(std::forward<F>(visitor)))
         {
-            return std::move(inner_).move_visit(std::forward<F>(visitor));
+            return std::move(inner_).visit(std::forward<F>(visitor));
         }
 
         template<typename T>
@@ -458,45 +434,45 @@ namespace variant {
         VariantStorage<Ts...> inner_;
     };
 
+    namespace traits {
+        template<typename T>
+        struct is_variant : std::false_type { };
+
+        template<typename... Ts>
+        struct is_variant<Variant<Ts...>> : std::true_type { };
+
+        template<typename... Ts>
+        struct is_variant<Variant<Ts...> const> : std::true_type { };
+
+        template<typename... Ts>
+        struct is_variant<Variant<Ts...>&> : std::true_type { };
+
+        template<typename... Ts>
+        struct is_variant<Variant<Ts...> const&> : std::true_type { };
+
+        template<typename T>
+        constexpr bool is_variant_v = is_variant<T>::value;
+    }
+
     template<typename T, typename... Ts>
     auto is_alternative(Variant<Ts...> const& v) -> bool {
         return v.template is_alternative<T>();
     }
 
-    template<typename F, typename T, typename... Ts>
-    auto visit(F&& visitor, Variant<T, Ts...> const& var) 
-        -> decltype(var.visit(std::forward<F>(visitor)))
-    {
-        return var.visit(std::forward<F>(visitor));
+    template<
+        typename F, 
+        typename V,
+        typename std::enable_if<traits::is_variant_v<V>>::type* = nullptr>
+    decltype(auto) visit(F&& visitor, V&& var) {
+        return std::forward<V>(var).visit(std::forward<F>(visitor));
     }
 
-    template<typename F, typename T, typename... Ts>
-    auto visit(F&& visitor, Variant<T, Ts...>& var)
-        -> decltype(var.visit(std::forward<F>(visitor)))
-    {
-        return var.visit(std::forward<F>(visitor));
-    }
-
-    template<typename F, typename T, typename... Ts>
-    auto visit(F&& visitor, Variant<T, Ts...>&& var)
-        -> decltype(std::move(var).visit(std::forward<F>(visitor)))
-    {
-        return std::move(var).visit(std::forward<F>(visitor));
-    }
-
-    template<typename T, typename... Ts> 
-    auto& get(Variant<Ts...>& var) {
-        return var.template get<T>();
-    }
-
-    template<typename T, typename... Ts> 
-    auto const& get(Variant<Ts...> const& var) {
-        return var.template get<T>();
-    }
-
-    template<typename T, typename... Ts> 
-    auto&& get(Variant<Ts...>&& var) {
-        return std::move(var).template get<T>();
+    template<
+        typename T, 
+        typename V,
+        typename std::enable_if<traits::is_variant_v<V>>::type* = nullptr>
+    decltype(auto) get(V&& var) {
+        return std::forward<V>(var).template get<T>();
     }
 }
 #endif //VARIANT_VARIANT_HPP_INCLUDED

@@ -106,20 +106,20 @@ namespace json {
             : os_{ os }
         { }
 
-        auto operator()(JsonString const& s) -> std::ostream& {
+        auto operator()(JsonString const& s) const -> std::ostream& {
             return os_ << "\"" << s.value << "\"";
         }
 
-        auto operator()(JsonNumber const& n) -> std::ostream& {
+        auto operator()(JsonNumber const& n) const -> std::ostream& {
             return os_ << n.value;
         }
 
         template<typename T>
-        auto operator()(JsonProxy<T> const& p) -> std::ostream& {
+        auto operator()(JsonProxy<T> const& p) const -> std::ostream& {
             return os_ << *p;
         }
         
-        auto operator()(JsonNull const&) -> std::ostream& {
+        auto operator()(JsonNull const&) const -> std::ostream& {
             return os_ << "null";
         }
 
